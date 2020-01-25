@@ -22,18 +22,14 @@
     /// <remarks>
     ///     Transient object, session factory must be registered as singleton in DI Container.
     /// </remarks>
+    /// <threadsafety static="false" instance="false" />
     [PublicAPI]
-    public class NHibernateSessionFactoryBuilder
+    public class NHibernateSessionFactoryBuilder : INHibernateSessionFactoryBuilder
     {
         /// <summary>
         ///     Default configuration file name.
         /// </summary>
         public const string DefaultNHibernateConfigFileName = @"hibernate.cfg.xml";
-
-        /// <summary>
-        ///     Default NHibernate session factory key.
-        /// </summary>
-        public static readonly string DefaultConfigurationName = "nhibernate.current_session";
 
         readonly List<Assembly> _mappingAssemblies;
         List<string> _additionalDependencies;
@@ -41,10 +37,12 @@
         AutoPersistenceModel _autoPersistenceModel;
         string _configFile;
 
-        INHibernateConfigurationCache _configurationCache;
+        [NotNull] INHibernateConfigurationCache _configurationCache;
         Action<Configuration> _exposeConfiguration;
         IPersistenceConfigurer _persistenceConfigurer;
         IDictionary<string, string> _properties;
+        Configuration _cachedConfiguration;
+
         bool _useDataAnnotationValidators;
 
         /// <summary>
@@ -61,6 +59,7 @@
         ///     Creates the session factory.
         /// </summary>
         /// <returns> NHibernate session factory <see cref="ISessionFactory" />.</returns>
+        /// <exception cref="T:System.InvalidOperationException">No dependencies were specified</exception>
         [NotNull]
         public ISessionFactory BuildSessionFactory()
         {
@@ -85,31 +84,43 @@
         ///         To make persistent changes use <seealso cref="ExposeConfiguration" />.
         ///     </para>
         /// </remarks>
-        /// <exception cref="InvalidOperationException">No dependencies were specified</exception>
+        /// <exception cref="InvalidOperationException">No dependencies were specified for configuration cache using
+        /// <see cref="AddMappingAssemblies"/>, <see cref="UseConfigFile(string)"/> or <see cref="WithFileDependency(string)"/>.
+        /// </exception>
         [NotNull]
         public Configuration BuildConfiguration(string basePath = null)
         {
-            var dependencyList = basePath == null
-                ? DependencyList.WithBasePathOfAssembly(Assembly.GetExecutingAssembly())
-                : DependencyList.WithPathPrefix(basePath);
-            dependencyList
-                .AddAssemblies(_mappingAssemblies);
+            if (_cachedConfiguration != null) return _cachedConfiguration;
 
-            if (!string.IsNullOrEmpty(_configFile)) dependencyList.AddFile(_configFile);
-            dependencyList.AddFiles(_additionalDependencies);
+            Configuration configuration = null;
+            DateTime? timestamp = null;
+            if (_configurationCache != NullNHibernateConfigurationCache.Null)
+            {
+                var dependencyList = basePath == null
+                    ? DependencyList.WithBasePathOfAssembly(Assembly.GetExecutingAssembly())
+                    : DependencyList.WithPathPrefix(basePath);
+                dependencyList
+                    .AddAssemblies(_mappingAssemblies);
 
-            var timestamp = dependencyList.GetLastModificationTime();
-            if (timestamp == null) throw new InvalidOperationException("No dependencies were specified");
+                if (!string.IsNullOrEmpty(_configFile)) dependencyList.AddFile(_configFile);
+                dependencyList.AddFiles(_additionalDependencies);
 
-            var configuration = _configurationCache.TryLoad(timestamp.Value);
+                timestamp = dependencyList.GetLastModificationTime();
+                if (timestamp == null) throw new InvalidOperationException($"No dependencies for configuration cache were specified. "+
+                    $"Use {nameof(AddMappingAssemblies)}(), {nameof(UseConfigFile)}() or {nameof(WithFileDependency)}() to specify dependencies.");
+
+                configuration = _configurationCache.TryLoad(timestamp.Value);
+            }
 
             if (configuration == null)
             {
                 configuration = LoadExternalConfiguration();
                 configuration = ApplyCustomSettings(configuration);
-                _configurationCache.Save(configuration, timestamp.Value);
+                if (_configurationCache != NullNHibernateConfigurationCache.Null && timestamp.HasValue)
+                    _configurationCache.Save(configuration, timestamp.Value);
             }
 
+            _cachedConfiguration = configuration;
             return configuration;
         }
 
@@ -322,12 +333,13 @@
         Configuration LoadExternalConfiguration()
         {
             var cfg = new Configuration();
-            if (_properties != null && _properties.Any())
+            if (_properties != null && _properties.Count > 0)
             {
                 cfg.AddProperties(_properties);
             }
 
-            if (!string.IsNullOrEmpty(_configFile) && !string.Equals(_configFile, DefaultConfigurationName, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(_configFile)
+                && !string.Equals(_configFile, DefaultNHibernateConfigFileName, StringComparison.OrdinalIgnoreCase))
             {
                 return cfg.Configure(_configFile);
             }
