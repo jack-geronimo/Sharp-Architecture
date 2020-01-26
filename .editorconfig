@@ -1,20 +1,23 @@
-# Suppress: EC112
 root=true
+# Suppress: EC112
 
 [*]
-trim_trailing_whitespace = true
-insert_final_newline = true
-indent_style = space
-indent_size = 4
+trim_trailing_whitespace=true
+insert_final_newline=true
+indent_style=space
+indent_size=4
+
+# ReSharper properties
+resharper_xmldoc_linebreaks_inside_tags_for_elements_longer_than=110
 
 [*.{config,xml,js,json,html,css,sql,csproj,props,yml}]
-indent_size = 2
+indent_size=2
 
 [*.sh]
-end_of_line = lf
+end_of_line=lf
 
 [*.{cmd, bat}]
-end_of_line = crlf
+end_of_line=crlf
 
 [{**/tests/**,**/Tests/**,**/*.Tests/**}.cs]
 resharper_class_never_instantiated_global_highlighting=do_not_show
@@ -34,6 +37,7 @@ resharper_return_value_of_pure_method_is_not_used_highlighting=do_not_show
 resharper_suggest_base_type_for_parameter_highlighting=do_not_show
 resharper_class_with_virtual_members_never_inherited_local_highlighting=do_not_show
 resharper_class_with_virtual_members_never_inherited_global_highlighting=do_not_show
+resharper_missing_xml_doc_highlighting=do_not_show
 
 [**/{Startup,Program}.cs]
 resharper_event_exception_not_documented_highlighting=do_not_show

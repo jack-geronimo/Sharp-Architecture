@@ -14,8 +14,8 @@
 
     public class NHibernateSessionFactoryBuilderTests : IDisposable
     {
-        private readonly string _tempFileName;
-        private DependencyList _dependencyList;
+        readonly string _tempFileName;
+        DependencyList _dependencyList;
 
         /// <inheritdoc />
         public NHibernateSessionFactoryBuilderTests()
@@ -38,7 +38,7 @@
             }
         }
 
-        private string GetConfigFullName()
+        string GetConfigFullName()
         {
             const string defaultConfigFile = "sqlite-nhibernate-config.xml";
             return Path.Combine(DependencyList.GetAssemblyCodeBasePath(Assembly.GetExecutingAssembly()), defaultConfigFile);
@@ -68,6 +68,16 @@
             configuration.Should().NotBeNull();
 
             configuration.BuildSessionFactory();
+        }
+
+        [Fact]
+        public void Should_Reuse_BuiltConfigurationInstance()
+        {
+            var builder = new NHibernateSessionFactoryBuilder()
+                .UseConfigFile(GetConfigFullName());
+
+            var config = builder.BuildConfiguration();
+            builder.BuildConfiguration().Should().BeEquivalentTo(config);
         }
 
         [Fact]
@@ -169,10 +179,10 @@
     }
 
 
-    internal class InMemoryCache : NHibernateConfigurationCacheBase
+    class InMemoryCache : NHibernateConfigurationCacheBase
     {
-        private byte[] _data;
-        private DateTime? _timestamp;
+        byte[] _data;
+        DateTime? _timestamp;
 
         /// <inheritdoc />
         public InMemoryCache([NotNull] string sessionName)

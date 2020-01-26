@@ -40,7 +40,7 @@ namespace SharpArch.Domain.Validation
         /// <param name="validationContext">The validation context.</param>
         /// <returns></returns>
         /// <exception cref="System.InvalidOperationException">
-        ///     <see cref="IEntityDuplicateChecker" />can not be resolvedfrom
+        ///     <see cref="IEntityDuplicateChecker" />can not be resolved from
         ///     <paramref name="validationContext" />.
         /// </exception>
         protected ValidationResult DoValidate<TId>([NotNull] object value,
