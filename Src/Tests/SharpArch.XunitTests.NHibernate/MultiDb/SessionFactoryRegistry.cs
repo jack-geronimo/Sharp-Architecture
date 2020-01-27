@@ -9,16 +9,6 @@
     using JetBrains.Annotations;
 
 
-    public interface ISessionFactoryRegistry
-    {
-        void Add([NotNull] string databaseKey, [NotNull] INHibernateSessionFactoryBuilder sessionFactoryBuilder);
-        ISessionFactory GetSessionFactory([NotNull] string databaseKey);
-        Configuration GetConfiguration(string databaseKey);
-        bool Contains(string databaseKey);
-        bool IsSessionFactoryCreated(string databaseKey);
-    }
-
-
     /// <summary>
     ///     Contains registered NHibernate Factories.
     ///     <para>
@@ -47,7 +37,7 @@
     /// <threadsafety static="true" instance="true" />
     public class SessionFactoryRegistry : IDisposable, ISessionFactoryRegistry
     {
-        public static readonly string DefaultDatabaseKey = "default";
+        public static readonly string DefaultdatabaseIdentifier = "default";
 
         readonly ConcurrentDictionary<string, Container> _sessionFactoryBuilders =
             new ConcurrentDictionary<string, Container>(4, 16, StringComparer.Ordinal);
@@ -61,49 +51,49 @@
             }
         }
 
-        public void Add([NotNull] string databaseKey, [NotNull] INHibernateSessionFactoryBuilder sessionFactoryBuilder)
+        public void Add([NotNull] string databaseIdentifier, [NotNull] INHibernateSessionFactoryBuilder sessionFactoryBuilder)
         {
-            if (string.IsNullOrWhiteSpace(databaseKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseKey));
+            if (string.IsNullOrWhiteSpace(databaseIdentifier)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseIdentifier));
             if (sessionFactoryBuilder == null) throw new ArgumentNullException(nameof(sessionFactoryBuilder));
 
-            AddLazyFactory(databaseKey, new Container(sessionFactoryBuilder));
+            AddLazyFactory(databaseIdentifier, new Container(sessionFactoryBuilder));
         }
 
-        public ISessionFactory GetSessionFactory([NotNull] string databaseKey)
-            => GetLazyFactory(databaseKey).SessionFactory.Value;
+        public ISessionFactory GetSessionFactory([NotNull] string databaseIdentifier)
+            => GetLazyFactory(databaseIdentifier).SessionFactory.Value;
 
-        public Configuration GetConfiguration(string databaseKey)
-            => GetLazyFactory(databaseKey).Configuration.Value;
+        public Configuration GetConfiguration(string databaseIdentifier)
+            => GetLazyFactory(databaseIdentifier).Configuration.Value;
 
-        public bool Contains(string databaseKey)
+        public bool Contains(string databaseIdentifier)
         {
-            if (string.IsNullOrWhiteSpace(databaseKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseKey));
-            return _sessionFactoryBuilders.ContainsKey(databaseKey);
+            if (string.IsNullOrWhiteSpace(databaseIdentifier)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseIdentifier));
+            return _sessionFactoryBuilders.ContainsKey(databaseIdentifier);
         }
 
-        public bool IsSessionFactoryCreated(string databaseKey)
+        public bool IsSessionFactoryCreated(string databaseIdentifier)
         {
-            if (string.IsNullOrWhiteSpace(databaseKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseKey));
-            return GetLazyFactory(databaseKey).SessionFactory.IsValueCreated;
+            if (string.IsNullOrWhiteSpace(databaseIdentifier)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseIdentifier));
+            return GetLazyFactory(databaseIdentifier).SessionFactory.IsValueCreated;
         }
 
-        void AddLazyFactory(string databaseKey, Container container)
+        void AddLazyFactory(string databaseIdentifier, Container container)
         {
-            if (!_sessionFactoryBuilders.TryAdd(databaseKey, container))
-                throw new InvalidOperationException($"SessionFactory with databaseKey '{databaseKey}' already registered.")
+            if (!_sessionFactoryBuilders.TryAdd(databaseIdentifier, container))
+                throw new InvalidOperationException($"SessionFactory with databaseIdentifier '{databaseIdentifier}' already registered.")
                 {
-                    Data = {["SessionFactoryKey"] = databaseKey}
+                    Data = {["SessiondatabaseIdentifier"] = databaseIdentifier}
                 };
         }
 
-        Container GetLazyFactory(string databaseKey)
+        Container GetLazyFactory(string databaseIdentifier)
         {
-            if (string.IsNullOrWhiteSpace(databaseKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseKey));
+            if (string.IsNullOrWhiteSpace(databaseIdentifier)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseIdentifier));
 
-            if (!_sessionFactoryBuilders.TryGetValue(databaseKey, out var lazyFactory))
-                throw new InvalidOperationException($"SessionFactory with databaseKey '{databaseKey}' was not registered.")
+            if (!_sessionFactoryBuilders.TryGetValue(databaseIdentifier, out var lazyFactory))
+                throw new InvalidOperationException($"SessionFactory with databaseIdentifier '{databaseIdentifier}' was not registered.")
                 {
-                    Data = {["SessionFactoryKey"] = databaseKey}
+                    Data = {["SessiondatabaseIdentifier"] = databaseIdentifier}
                 };
             return lazyFactory;
         }

@@ -3,13 +3,14 @@
     using System;
     using System.Collections.Concurrent;
     using global::NHibernate;
+    using global::SharpArch.NHibernate;
     using JetBrains.Annotations;
 
 
-    public delegate void ConfigureSession(string databaseKey, ISessionBuilder sessionBuilder);
+    public delegate void ConfigureSession(string databaseIdentifier, ISessionBuilder sessionBuilder);
 
 
-    public delegate void ConfigureStatelessSession(string databaseKey, IStatelessSessionBuilder sessionBuilder);
+    public delegate void ConfigureStatelessSession(string databaseIdentifier, IStatelessSessionBuilder sessionBuilder);
 
 
     /// <summary>
@@ -41,7 +42,7 @@
     public class SessionRegistry : IDisposable, ISessionRegistry
     {
         readonly InitializationParams _initializationParams;
-        readonly ConcurrentDictionary<string, ISession> _sessions = new ConcurrentDictionary<string, ISession>(4, 4);
+        readonly ConcurrentDictionary<string, INHibernateTransactionManager> _sessions = new ConcurrentDictionary<string, INHibernateTransactionManager>(4, 4);
 
         public SessionRegistry(
             [NotNull] ISessionFactoryRegistry sessionFactoryRegistry, ConfigureSession configureSession = null,
@@ -54,29 +55,29 @@
         /// <inheritdoc />
         public void Dispose()
         {
-            foreach (var session in _sessions.Values)
+            foreach (var transactionManager in _sessions.Values)
             {
-                session.Dispose();
+                transactionManager.Session.Dispose();
             }
         }
 
-        public ISession GetSession([NotNull] string databaseKey)
+        public INHibernateTransactionManager GetTransactionManager([NotNull] string databaseIdentifier)
         {
-            if (string.IsNullOrWhiteSpace(databaseKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseKey));
+            if (string.IsNullOrWhiteSpace(databaseIdentifier)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseIdentifier));
 
-            return _sessions.GetOrAdd(databaseKey, (key, p) =>
+            return _sessions.GetOrAdd(databaseIdentifier, (key, p) =>
             {
                 var builder = p.SessionFactoryRegistry.GetSessionFactory(key).WithOptions();
                 p.ConfigureSession?.Invoke(key, builder);
-                return builder.OpenSession();
+                return new TransactionManager(builder.OpenSession());
             }, _initializationParams);
         }
 
-        public IStatelessSession CreateStatelessSession([NotNull] string databaseKey)
+        public IStatelessSession CreateStatelessSession([NotNull] string databaseIdentifier)
         {
-            if (string.IsNullOrWhiteSpace(databaseKey)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseKey));
-            var builder = _initializationParams.SessionFactoryRegistry.GetSessionFactory(databaseKey).WithStatelessOptions();
-            _initializationParams.ConfigureStatelessSession?.Invoke(databaseKey, builder);
+            if (string.IsNullOrWhiteSpace(databaseIdentifier)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(databaseIdentifier));
+            var builder = _initializationParams.SessionFactoryRegistry.GetSessionFactory(databaseIdentifier).WithStatelessOptions();
+            _initializationParams.ConfigureStatelessSession?.Invoke(databaseIdentifier, builder);
             return builder.OpenStatelessSession();
         }
 
